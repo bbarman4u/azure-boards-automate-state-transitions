@@ -1,5 +1,4 @@
-﻿
-using AutoStateTransitions.Misc;
+﻿using AutoStateTransitions.Misc;
 using AutoStateTransitions.Models;
 using AutoStateTransitions.Repos;
 using AutoStateTransitions.Repos.Interfaces;
@@ -35,6 +34,8 @@ namespace AutoStateTransitions
         {
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_3_0);
 
+            services.AddHttpContextAccessor();
+            services.AddHttpClient<IRulesRepo, RulesRepo>();
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "Azure DevOps - Automate State Transitions", Version = "v1" });
@@ -44,11 +45,11 @@ namespace AutoStateTransitions
             services.AddTransient<IHelper, Helper>();
 
             services.AddTransient<IWorkItemRepo, WorkItemRepo>();
-            services.AddTransient<IRulesRepo, RulesRepo>();
 
             services.AddControllersWithViews();
             services.AddHealthChecks();
 
+            services.AddMvc().AddNewtonsoftJson();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -64,13 +65,14 @@ namespace AutoStateTransitions
             }
 
             app.UseSwagger();
+
             app.UseSwaggerUI(c =>
             {
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "Azure DevOps - Automate State Transitions");
+                //c.RoutePrefix = string.Empty;
             });
 
             app.UseHttpsRedirection();
-
             app.UseRouting();
             app.UseAuthentication();
             app.UseAuthorization();
@@ -79,6 +81,8 @@ namespace AutoStateTransitions
                 endpoints.MapHealthChecks("/health");
                 endpoints.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}");
             });
+
+            app.UseStaticFiles();
         }
     }
 }

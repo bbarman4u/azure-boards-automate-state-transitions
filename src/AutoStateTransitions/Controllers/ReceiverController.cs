@@ -48,8 +48,26 @@ namespace AutoStateTransitions.Controllers
             PayloadViewModel vm = BuildPayloadViewModel(payload);
 
             //make sure pat is not empty, if it is, pull from appsettings
-            vm.pat = _appSettings.Value.PersonalAccessToken;
-
+            string pat = System.Environment.GetEnvironmentVariable("ADO_PAT", EnvironmentVariableTarget.Process);
+            
+            if(pat == null){
+                System.Console.WriteLine( DateTime.Now + " Pat not found in env Process, trying user level");
+                pat = System.Environment.GetEnvironmentVariable("ADO_PAT", EnvironmentVariableTarget.User);
+                if(pat == null){
+                    System.Console.WriteLine( DateTime.Now + " Pat not found in env user, trying pat from app settings");
+                    pat = _appSettings.Value.PersonalAccessToken;
+                } 
+            }
+            if(pat != null){
+                System.Console.WriteLine( DateTime.Now + " using PAT:" + Mask(pat));
+                vm.pat = pat;
+            }else{
+                System.Console.WriteLine( DateTime.Now
+                                          + " PAT is required and not found, exiting");
+                return new StandardResponseObjectResult("failure, missing PAT", StatusCodes.Status400BadRequest); 
+            }
+ 
+            
             //if the event type is something other the updated, then lets just return an ok
             if (vm.eventType != "workitem.updated") return new OkResult();
 
@@ -80,18 +98,21 @@ namespace AutoStateTransitions.Controllers
 
             // load rules for updated work item
             RulesModel rulesModel = await _rulesRepo.ListRules(vm.workItemType);
-
+            OkResult updateResult = null;
             //loop through each rule
             foreach (var rule in rulesModel.Rules)
             {
+                System.Console.WriteLine( DateTime.Now + " rule:" + rule.IfChildState);
                 if (rule.IfChildState.Equals(vm.state))
                 {
                     if (!rule.AllChildren)
                     {
+                         System.Console.WriteLine( DateTime.Now + " In !rule.AllChildren:" + vm.state);
                         if (!rule.NotParentStates.Contains(parentState))
                         {
                             await _workItemRepo.UpdateWorkItemState(vssConnection, parentWorkItem, rule.SetParentStateTo);
-                            return new OkResult();
+                            //return new OkResult();
+                            updateResult = new OkResult();
                         }
                     }
                     else
@@ -105,15 +126,32 @@ namespace AutoStateTransitions.Controllers
                         if (count.Equals(0))
                             await _workItemRepo.UpdateWorkItemState(vssConnection, parentWorkItem, rule.SetParentStateTo);
 
-                        return new OkResult();
+                        //return new OkResult();
+                         updateResult = new OkResult();
                     }
 
                 }
+               
+            }
+
+            if(updateResult != null){
+                 return updateResult;
             }
 
             return new StandardResponseObjectResult("success", StatusCodes.Status200OK);
         }
 
+        private static string Mask(string s)
+                {
+                    if (string.IsNullOrEmpty(s))
+                        return s;
+
+                    const char maskChar = '*';
+                    if (s.Length < 4)
+                        return "".PadLeft(s.Length, maskChar);
+
+                    return string.Format("{0}{1}{2}", s[0], "".PadLeft(s.Length - 2, maskChar), s[s.Length - 1]);
+                }
         private PayloadViewModel BuildPayloadViewModel(JObject body)
         {
             PayloadViewModel vm = new PayloadViewModel();
@@ -129,7 +167,17 @@ namespace AutoStateTransitions.Controllers
             vm.organization = org;
             vm.teamProject = body["resource"]["fields"]["System.AreaPath"] == null ? null : body["resource"]["fields"]["System.AreaPath"].ToString();
             vm.state = body["resource"]["fields"]["System.State"]["newValue"] == null ? null : body["resource"]["fields"]["System.State"]["newValue"].ToString();
-
+            
+            //debug
+            System.Console.WriteLine( DateTime.Now + " Requested Payload eventType:" + vm.eventType);
+            System.Console.WriteLine( DateTime.Now + " Requested Payload state:" + vm.state);
+            System.Console.WriteLine( DateTime.Now + " Requested Payload workItemType:" + vm.workItemType);
+            System.Console.WriteLine( DateTime.Now + " Requested Payload workItemId:" + vm.workItemId);
+            System.Console.WriteLine( DateTime.Now + " Requested Payload orgnization:" + vm.organization);
+            String tempParentId = body["resource"]["revision"]["fields"]["System.Parent"] == null ? null : body["resource"]["revision"]["fields"]["System.Parent"].ToString();
+            String tempTeamProject = body["resource"]["revision"]["fields"]["System.TeamProject"] == null ? null : body["resource"]["revision"]["fields"]["System.TeamProject"].ToString();
+            System.Console.WriteLine( DateTime.Now + " Requested Payload teamProject:" + tempTeamProject);
+            System.Console.WriteLine( DateTime.Now + " Requested Payload parentId:" + tempParentId);
             return vm;
         }
 
