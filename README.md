@@ -8,15 +8,18 @@ This API receives an Azure Boards work item update web hook event. The API will 
 
 For example, if your User Story is New and you create a task and set that task to active, the User Story should automatically be set to Active.
 
+## Important Updates (for this forked repo)
+* This forked repo is enhancing the original repo from MSFT and another forked repo of another github user mstephano (courtesy [this repo](https://github.com/mstephano/azure-boards-automate-state-transitions))
+
 # Setup
 
 1. Create a new Azure DevOps [Personal Access Token](https://docs.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate)
 
-2. Include the Personal Access Token into the appsettings.json file
+2. `Deprecated  due to security concerns of including the token in plan text in source code. Instead use environment variables to store & read the value of PAT whether on local workstation or inside Azure App Service` ~~Include the Personal Access Token into the appsettings.json file~~
 
    ```
     "AppSettings": {
-    "PersonalAccessToken": "<personal access token>",
+    "PersonalAccessToken": "",
     "Organization": "",
     "SourceForRules": "https://raw.githubusercontent.com/microsoft/azure-boards-automate-state-transitions/master/src/AutoStateTransitions/Rules/"
    ```
@@ -99,30 +102,32 @@ For example, if your User Story is New and you create a task and set that task t
    },
     ````
 
-6. Point to the correct url for your rules files. By default the rules files are [stored in this location](https://raw.githubusercontent.com/microsoft/azure-boards-automate-state-transitions/master/src/AutoStateTransitions/Rules/). You can edit the location in the [appsettings.json](https://github.com/microsoft/azure-boards-automate-state-transitions/blob/master/src/AutoStateTransitions/appsettings.json) file.
+6. Point to the correct url for your rules files. By default the rules files are [stored in this location](https://raw.githubusercontent.com/bbarman4u/azure-boards-automate-state-transitions/master/src/AutoStateTransitions/wwwroot/scrum/). You can edit the location in the [appsettings.json](https://github.com/microsoft/azure-boards-automate-state-transitions/blob/master/src/AutoStateTransitions/appsettings.json) file.
+
+Example - 
 
    ```
    "AppSettings": {
-   "PersonalAccessToken": "<personal access token>",
+   "PersonalAccessToken": "",
    "Organization": "",
-   "SourceForRules": "https://raw.githubusercontent.com/microsoft/azure-boards-automate-state-transitions/master/src/AutoStateTransitions/Rules/"
+   "SourceForRules": "https://raw.githubusercontent.com/bbarman4u/azure-boards-automate-state-transitions/master/src/AutoStateTransitions/wwwroot/scrum/"
    ```
 
-   ***Note: Rule files have only been setup for User Story and Task.***  
+   ***Note: Sample Rule files have been set up in respective folders by process type, please define and use accordingly***  
+
+# Security Considerations
+* Consider securing the exposed API URL behind an Azure APIM Services that protects and authenticates the service endpoint.
+* Create only Allow rules for access to the deployed App Service from the public IP address of the APIM instance.
+* Store the Azure DevOps PAT in a variable like "ADO_PAT" as an environment variable or consider utilizing an Azure Key Vault to retrieve the PAT(would require further code enhancement).
+* Example architecture Diagram -
+
+  ![](./media/architecture-diagram.png)
 
 # Feature Updates
 * Defined the rules in wwwroot folder so include any new rules like this in the `src\AutoStateTransitions\AutoStateTransitions.csproj`
 ```
   <ItemGroup>
-    <Content Update="wwwroot\rules\rules.product backlog item.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Update="wwwroot\rules\rules.task.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Update="wwwroot\rules\rules.user story.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <Content Update="wwwroot\**\*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 ```
 
